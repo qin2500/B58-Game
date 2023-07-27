@@ -26,7 +26,7 @@
 	gravity: .word 0
 	
 	#Player Sprite
-	sprite: .word 0xff0000, 28
+	sprite: .word 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000,
 	spriteSizeX: .word 4
 	spriteSizeY: .word 7
 	
@@ -107,6 +107,7 @@ updatePlayer:
 	
 	playerSpriteLoopY:
 		beq $t4, 7, endOfplayerSpriteLoopY
+		li $t5, 0
 		playerSpriteLoopX:
 			beq $t5, 4, endOfplayerSpriteLoopX
 			#Calculate postiion of new sprite pixel relative to new position
@@ -120,15 +121,18 @@ updatePlayer:
 			
 			#Get color of sprite 
 			la $t3, sprite
-			move $a0, $t4
-			sll $a0, $a0, 2
-			add $a0, $a0, 4
+			move $t2, $t4
+			sll $t2, $t2, 2
+			add $t2, $t2, $t5
+			sll $t2, $t2, 2
+			add $t3, $t3, $t2
+			lw  $a0, ($t3)
 			
 			#send pixel off for drawing
 			la $a3, drawPixel
 			jalr $a2, $a3
 			
-			#--------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------
 			#Now we need to check from the old position to see which pixels we need to clear
 			lw $t3, playerPrevPos
 			add $t6, $t6, $t3
@@ -191,15 +195,15 @@ updatePlayer:
 
 #Draw Pixel given color in $a0, position in $a1, and return register in a2
 drawPixel: 
+
 	li $t0, BASE_ADDRESS
 	li $t7, 4
 	mult $t7, $a1
 	mflo $t7
 	add $t0, $t0, $t7
 	
-	#If its already the correct color, then skip
-	beq $a0, $t0, skipDraw 
 	sw $a0, 0($t0)
+	
 	
 	skipDraw: jr $a2
 	
