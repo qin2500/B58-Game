@@ -18,11 +18,11 @@
 	playerPos: .word 0
 	playerPrevPos: .word 0 #Used for temp variable storage (cuz i ran out of registers)
 	
-	playerSpeed: .word 15 # How many frames per update
+	playerSpeed: .word 30 # How many frames per update
 	playerUpdateCounter: .word 0
 	
-	playerVelX: .word 1
-	playerVelY: .word 1
+	playerVelX: .word 0
+	playerVelY: .word 0
 	gravity: .word 0
 	
 	#Player Sprite
@@ -48,12 +48,46 @@ update:
 	la $v0, 32
 	lw $a0, frameDelay
 	syscall
-		 
 	
+	#Get user input
+	li $t9, 0xffff0000
+	lw $t8, 0($t9)
+	beq $t8, 1, keyPressed	 
+	
+
 	j update
 
 #closing the game
 end:
+
+#Handle User input
+keyPressed:
+	lw $t2, 4($t9) 
+	beq $t2, 0x61, aPress
+	beq $t2, 0x77, wPress 
+	beq $t2, 0x73, sPress 
+	beq $t2, 0x64, dPress  
+	
+	
+	j update
+	
+	aPress: 
+		li $s0, -1
+		sw $s0, playerVelX
+		j update
+	wPress: 
+		li $s0, 1
+		sw $s0, playerVelY
+		j update
+	sPress: 
+		li $s0, -1
+		sw $s0, playerVelY
+		j update
+	dPress: 
+		li $s0, 1
+		sw $s0, playerVelX
+		j update
+
 
 #Update both player position and sprite position on screen
 updatePlayer:	
@@ -96,12 +130,6 @@ updatePlayer:
 	#Store new position
 	sw $t9, playerPos
 	
-	#Draw new frame
-#	li $a0, 0xff0000
-#	move $a1, $t9	
-#	la $t6, drawPixel
-#	jalr $a2, $t6
-
 	li $t4, 0 #Track our Y offset
 	li $t5, 0 #Track our X offset
 	
@@ -145,9 +173,10 @@ updatePlayer:
 			#X of new cord
 			div $t9, $t7
 			mfhi $t7
+			addi $t7, $t7, -1
 			
 			#Check if x cord is within the new sprite position 
-			addi $t3, $t7, 4
+			addi $t3, $t7, 5
 			bge $t8, $t3, doClear
 			ble $t8, $t7, doClear
 			
@@ -159,9 +188,10 @@ updatePlayer:
 			#Y of new cord
 			div $t9, $t7
 			mflo $t7
+			addi $t7, $t7, -1
 			
 			#Check if y cord is within the new sprite position 
-			addi $t3, $t7, 7
+			addi $t3, $t7, 8
 			bge $t8, $t3, doClear
 			ble $t8, $t7, doClear
 			
@@ -182,13 +212,6 @@ updatePlayer:
 			j playerSpriteLoopY
 	endOfplayerSpriteLoopY:
 		
-	
-	#Clear previous frame
-#	move $a0, $t1
-#	move $a1, $t5
-#	la $t6, drawPixel
-#	jalr $a2, $t6
-	
 	
 	finishedPlayerUpdate: jr $ra
 
