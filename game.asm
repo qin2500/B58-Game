@@ -6,7 +6,6 @@
 # - Display width in pixels: 512
 # - Display height in pixels: 512
 # - Base Address for Display: 0x10008000 ($gp)
-#Final Screen pixel is at offset: 16380 = 512 * 32 - 4
 .eqv BASE_ADDRESS 0x10008000
 
 .data
@@ -14,16 +13,18 @@
 	frameDelay: .word 1
 	
 	#Player Data
-	#128 units per row
-	playerPos: .word 0
-	playerPrevPos: .word 0 #Used for temp variable storage (cuz i ran out of registers)
+	playerPos: .word 95
+	playerPrevPos: .word 0 #Used for temp variable storage
 	
-	playerSpeed: .word 30 # How many frames per update
-	playerUpdateCounter: .word 0
-	
-	playerVelX: .word 0
+	playerSpeedX: .word 17 # How many frames per update
+	playerSpeedY: .word 10 # How many frames per update
+		
+	playerVelX: .word 1
 	playerVelY: .word 0
-	gravity: .word 0
+	gravity: .word 1
+	
+	isGrounded: .word 0
+	jumping: .word 0
 	
 	#Player Sprite
 	sprite: .word 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000,
@@ -39,7 +40,15 @@ main:
 	li $t0, BASE_ADDRESS # possition of our painting brush
 	li $t1, 0x000000 #stores the color black (for clearing pixels)
 	
+	#Load in frame buffer values
+	li $s7, 0
+	li $s6, 0
+	
+	#Jump Frame AC
+	li $s5, 0
+	
 update: 
+	
 	
 	jal updatePlayer
 	
@@ -65,32 +74,102 @@ keyPressed:
 	lw $t2, 4($t9) 
 	beq $t2, 0x61, aPress
 	beq $t2, 0x77, wPress 
-	beq $t2, 0x73, sPress 
 	beq $t2, 0x64, dPress  
 	
 	
 	j update
 	
 	aPress: 
-		li $s0, -1
-		sw $s0, playerVelX
+		li $t5, -1
+		sw $t5, playerVelX
 		j update
 	wPress: 
-		li $s0, 1
-		sw $s0, playerVelY
-		j update
-	sPress: 
-		li $s0, -1
-		sw $s0, playerVelY
+		#Can't jump if not grounded
+		lw $t9, isGrounded
+		beq $t9, $zero, update
+		
+		li $t7, -1
+		sw $t7, playerVelY
+		
+		li $t7, 3
+		sw $t7, playerSpeedY
+		
+		li $t5, 0
+		sw $t5, isGrounded
+		li $t5, 1
+		sw $t5, jumping
 		j update
 	dPress: 
-		li $s0, 1
-		sw $s0, playerVelX
+		li $t5, 1
+		sw $t5, playerVelX
 		j update
 
 
 #Update both player position and sprite position on screen
 updatePlayer:	
+
+	#Update Player State
+	lw $t9, jumping
+	lw $t8, isGrounded
+	
+	#Check if jump is true
+	beq $t9, $zero, checkGrounded
+
+	#Jumping Logic
+	#--------------------------------------------------------------
+	#jumping is true	
+	addi $s5, $s5, 1
+	li $t7, 15
+	bgt $s5, $t7, decreaseYSpeed
+	j continueToPosUpdate
+	
+	decreaseYSpeed:
+	#decrease speed as player jumps (to mimik gravity)
+	li $s5, 0
+	lw $t7, playerSpeedY
+	addi $t7, $t7, 3
+	sw $t7, playerSpeedY
+	li $t6, 50
+	bgt $t7, $t6, transitionToFalling 
+	j continueToPosUpdate
+	
+	#Go from jumping to falling
+	transitionToFalling:
+	li $t7, 0
+	sw $t7, jumping
+	
+	j continueToPosUpdate
+	
+	#Falling Logic
+	#------------------------------------------------------------
+	checkGrounded:
+	bne $t8, $zero, continueToPosUpdate
+
+	#Plyaer is not grounded and not jumping
+	li $t7, 1
+	sw $t7, playerVelY
+	
+	addi $s5, $s5, 1
+	li $t7, 10
+	bgt $s5, $t7, increaseFallSpeed
+	j continueToPosUpdate
+	
+	increaseFallSpeed:
+	#decrease speed as player jumps (to mimik gravity)
+	lw $t7, playerSpeedY
+	li $s5, 0
+	li $t6, 5
+	blt $t7, $t6, continueToPosUpdate 
+	addi $t7, $t7, -3
+	sw $t7, playerSpeedY
+	
+
+	j continueToPosUpdate
+
+	#Player Position update 
+	#-------------------------------------------------------------
+	continueToPosUpdate:
+	
 	#Get velocity
 	lw $t7, playerVelX
 	lw $t8, playerVelY
@@ -101,32 +180,109 @@ updatePlayer:
 	#if player isn't moving, then don't update
 	j finishedPlayerUpdate
 	
+	
 	doPlayerUpdate:
-	#-------------------------------------------------------------
-	#update playerUpdateCounter and see if we can update the player
-	lw $t9, playerUpdateCounter
-	addi $t9, $t9,  1
-	lw $t6, playerSpeed
-	sw $t9, playerUpdateCounter
-	blt $t9, $t6, finishedPlayerUpdate
-	
-	#Reset the update counter once we update the player
-	li $t9, 0
-	sw $t9, playerUpdateCounter
-	#-------------------------------------------------------------
-	
 	#Get Current Position
 	lw $t9, playerPos
 	sw $t9, playerPrevPos
-
-	#Update player position x
-	add $t9, $t9, $t7
+	#-------------------------------------------------------------
+	#update playerUpdateCounter and see if we can update the player
+	addi $s6, $s6,  1
+	lw $t6, playerSpeedX
+	bgt $s6, $t6, doXUpdate
+	j checkYUpdate
 	
-	#Update player position y	
-	move $t6, $t8
-	sll $t6, $t6, 6
-	add $t9, $t9, $t6
+	doXUpdate:
+		#if velocity is zero, skip update
+		beq $t7, $zero, skipXUpdate
+		li $s6, 0 # Reset counter
+		
+		#Wall Collision Check
+		li $t6, 64
+		div $t9, $t6
+		mfhi $t4 #current x
+		add $t4, $t4, $t7
+		li $t6, 0
+		blt $t4, $t6, playerWallHit
+		li $t6, 60
+		bgt $t4, $t6, playerWallHit
+		j normalXUpdate
+		
+		playerWallHit:
+			lw $t4, playerVelX
+			sub $t4, $zero, $t4
+			add $t9, $t9, $t4
+			sw $t4, playerVelX
+		
+		#Update player position x
+		normalXUpdate:
+		add $t9, $t9, $t7
+		j checkYUpdate
+		
+		skipXUpdate:
+			li $s6, 1 # Reset counter
 	
+	#update playerUpdateCounter and see if we can update the player
+	checkYUpdate:
+	addi $s7, $s7,  1
+	lw $t6, playerSpeedY
+	bgt $s7, $t6, doYUpdate
+	j checkDraw
+	
+	doYUpdate:
+		#if velocity is zero, skip update
+		beq $t8, $zero, skipYUpdate
+		li $s7, 0 # Reset counter
+		
+		#Ground Collision Check
+		move $t6, $t8
+		sll $t6, $t6, 6
+		
+		add $t5, $t6, $t9
+		li $t6, 4096
+		addi $t4, $t5, 448
+		bgt $t4, $t6, grounded
+		j notGrounded
+		
+		#Set player to gounded state
+		grounded:
+		li $t6, 1
+		sw $t6, isGrounded
+		
+		li $s5, 0
+		
+		li $v0 1
+		li $a0, 1
+		syscall
+		
+		sw $zero, playerVelY
+		#Set position to the ground
+		li $t6, 64
+		div $t9, $t6
+		mfhi $t4 #current x
+		li $t5, 4096
+		subi $t5, $t5, 448
+		add $t5, $t5, $t4
+		move $t9, $t5
+	
+		j checkDraw	
+		
+		#Update player position y	
+		notGrounded:		
+		move $t9, $t5
+		
+		j checkDraw
+		
+		skipYUpdate:
+			li $s7, 1 # Reset counter
+	#-------------------------------------------------------------	
+	#Check to see if the player has moved
+	checkDraw:
+		bne $s6, $zero, nextCheck
+		j doPlayerSpriteUpdate
+		nextCheck: bne $s7, $zero,finishedPlayerUpdate 
+		
+	doPlayerSpriteUpdate:
 	#Store new position
 	sw $t9, playerPos
 	
