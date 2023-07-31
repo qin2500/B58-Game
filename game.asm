@@ -74,7 +74,8 @@ keyPressed:
 	lw $t2, 4($t9) 
 	beq $t2, 0x61, aPress
 	beq $t2, 0x77, wPress 
-	beq $t2, 0x64, dPress  
+	beq $t2, 0x64, dPress 
+	beq $t2, 0x73, sPress  
 	
 	
 	j update
@@ -101,6 +102,11 @@ keyPressed:
 		j update
 	dPress: 
 		li $t5, 1
+		sw $t5, playerVelX
+		j update
+		
+	sPress: 
+		li $t5, 0
 		sw $t5, playerVelX
 		j update
 
@@ -158,9 +164,9 @@ updatePlayer:
 	#decrease speed as player jumps (to mimik gravity)
 	lw $t7, playerSpeedY
 	li $s5, 0
-	li $t6, 5
+	li $t6, 10
 	blt $t7, $t6, continueToPosUpdate 
-	addi $t7, $t7, -3
+	addi $t7, $t7, -5
 	sw $t7, playerSpeedY
 	
 
