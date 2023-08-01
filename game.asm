@@ -12,7 +12,7 @@
 	#Game Setup
 	frameDelay: .word 1
 	
-	level1: .word 0:4096
+	level: .word 0:4096
 	
 	#Player Data
 	playerPos: .word 95
@@ -42,6 +42,8 @@
 .globl main
 .text
 main: 
+    # Continue with the rest of your code here
+
 	li $t0, BASE_ADDRESS # possition of our painting brush
 	li $t1, 0x000000 #stores the color black (for clearing pixels)
 	
@@ -52,8 +54,26 @@ main:
 	#Jump Frame AC
 	li $s5, 0
 	
-update: 
+	#Set Up Platforms
+	li $t2, 0xd7bb1eb
+	addi $sp, $sp, -4
+    	sw $t2, ($sp)
+    	
+    	li $t2, 3845
+	addi $sp, $sp, -4
+    	sw $t2, ($sp)
+    	
+    	li $t2, 10
+	addi $sp, $sp, -4
+    	sw $t2, ($sp)
+    	
+    	li $t2, 2
+	addi $sp, $sp, -4
+    	sw $t2, ($sp)
+    	
+    	jal makePlatform
 	
+update: 
 	
 	jal updatePlayer
 	
@@ -229,6 +249,18 @@ updatePlayer:
 		blt $t4, $t6, playerWallHit
 		li $t6, 60
 		bgt $t4, $t6, playerWallHit
+		
+		la $t6, level		
+		add $t4, $t9, $t7
+		sll $t5, $t4, 2
+		add $t6, $t6, $t5
+		lw $t5, 0($t6)
+		bgt $t5, $zero, playerWallHit
+		
+		addi $t6, $t6, 16	
+		lw $t5, 0($t6)			
+		bgt $t5, $zero, playerWallHit
+		
 		j normalXUpdate
 		
 		playerWallHit:
@@ -261,11 +293,30 @@ updatePlayer:
 		move $t6, $t8
 		sll $t6, $t6, 6
 		
+		#top
 		add $t5, $t6, $t9
-		li $t6, 4096
+		la $t6, level
+		sll $t4, $t5, 2
+		add $t6, $t6, $t4
+		lw $t4, ($t6)
+		bgt $t4, $zero, cancelJump
+		
+		#Bot
 		addi $t4, $t5, 256
+		li $t6, 4096
 		bgt $t4, $t6, grounded
+		
+		la $t6, level
+		sll $t4, $t4, 2
+		add $t6, $t6, $t4
+		lw $t4, ($t6)
+		bgt $t4, $zero, grounded
 		j notGrounded
+		
+		#Turn off Jump
+		cancelJump:
+		sw $zero, jumping
+		j checkDraw
 		
 		#Set player to gounded state
 		grounded:
@@ -437,16 +488,30 @@ makePlatform:
 			move $t3, $t4
 			sll $t3, $t3, 6
 			add $t3, $t3, $t5
+			add $t3, $t3, $t7
+			
+			#Update Level Array
+			la $t2, level
+			sll $s0, $t3, 2
+			add $t2, $t2, $s0
+			li $s0, 1
+			sw $s0, ($t2)	
 
 			#Set a1 to screen position
-			add $a1, $t7, $t3
+			move $a1, $t3
 			
 			#Get color of sprite 
-			lw $a0, $t6
+			move $a0, $t6
+			
+			addi $sp, $sp, -4
+    			sw $t7, ($sp)
 			
 			#send pixel off for drawing
 			la $a3, drawPixel
 			jalr $a2, $a3
+			
+			lw $t7, ($sp)
+    			addi $sp, $sp, 4
 			
 			addi $t5, $t5, 1
 			j platformLoopX
@@ -455,11 +520,7 @@ makePlatform:
 			addi $t4, $t4, 1
 			j platformLoopY
 		
-	endPlatformLoopY:
-		# Get ra
-    		lw $ra, ($sp)
-    		addi $sp, $sp, 4 
-    		
+	endPlatformLoopY:    		
     		jr $ra	
 	
 
