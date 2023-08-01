@@ -12,6 +12,8 @@
 	#Game Setup
 	frameDelay: .word 1
 	
+	level1: .word 0:4096
+	
 	#Player Data
 	playerPos: .word 95
 	playerPrevPos: .word 0 #Used for temp variable storage
@@ -26,8 +28,11 @@
 	isGrounded: .word 0
 	jumping: .word 0
 	
+	facingLeft: .word 0
+	
 	#Player Sprite
-	sprite: .word 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000, 0xff0000,
+	sprite: .word 0x000000, 0xd95959, 0xd95959, 0xd95959, 0xd95959, 0xd95959, 0xd7bb1eb, 0xd7bb1eb, 0xd95959, 0xd95959, 0xd95959, 0xd95959, 0x000000, 0xd95959, 0x000000, 0xd95959
+	leftSprite: .word 0xd95959, 0xd95959, 0xd95959, 0x000000, 0xd7bb1eb, 0xd7bb1eb, 0xd95959, 0xd95959, 0xd95959, 0xd95959, 0xd95959, 0xd95959, 0xd95959, 0xd000000 0xd95959, 0xd000000
 	spriteSizeX: .word 4
 	spriteSizeY: .word 7
 	
@@ -113,7 +118,7 @@ keyPressed:
 
 #Update both player position and sprite position on screen
 updatePlayer:	
-
+	
 	#Update Player State
 	lw $t9, jumping
 	lw $t8, isGrounded
@@ -125,7 +130,7 @@ updatePlayer:
 	#--------------------------------------------------------------
 	#jumping is true	
 	addi $s5, $s5, 1
-	li $t7, 15
+	li $t7, 12
 	bgt $s5, $t7, decreaseYSpeed
 	j continueToPosUpdate
 	
@@ -135,7 +140,7 @@ updatePlayer:
 	lw $t7, playerSpeedY
 	addi $t7, $t7, 3
 	sw $t7, playerSpeedY
-	li $t6, 50
+	li $t6, 45
 	bgt $t7, $t6, transitionToFalling 
 	j continueToPosUpdate
 	
@@ -179,6 +184,18 @@ updatePlayer:
 	#Get velocity
 	lw $t7, playerVelX
 	lw $t8, playerVelY
+	
+	#Flip Player Sprite
+	blt $t7, $zero, flipPlayerLeft
+	li $t2, 0
+	sw $t2, facingLeft
+	j skipflipLeft
+		
+	flipPlayerLeft:
+		li $t2, 1
+		sw $t2, facingLeft
+	
+	skipflipLeft:
 	
 	#Check if player is moving
 	bne $t7, $zero, doPlayerUpdate
@@ -246,7 +263,7 @@ updatePlayer:
 		
 		add $t5, $t6, $t9
 		li $t6, 4096
-		addi $t4, $t5, 448
+		addi $t4, $t5, 256
 		bgt $t4, $t6, grounded
 		j notGrounded
 		
@@ -267,7 +284,7 @@ updatePlayer:
 		div $t9, $t6
 		mfhi $t4 #current x
 		li $t5, 4096
-		subi $t5, $t5, 448
+		subi $t5, $t5, 256
 		add $t5, $t5, $t4
 		move $t9, $t5
 	
@@ -296,7 +313,7 @@ updatePlayer:
 	li $t5, 0 #Track our X offset
 	
 	playerSpriteLoopY:
-		beq $t4, 7, endOfplayerSpriteLoopY
+		beq $t4, 4, endOfplayerSpriteLoopY
 		li $t5, 0
 		playerSpriteLoopX:
 			beq $t5, 4, endOfplayerSpriteLoopX
@@ -311,6 +328,14 @@ updatePlayer:
 			
 			#Get color of sprite 
 			la $t3, sprite
+			
+			lw $s0, facingLeft
+			bgt $s0, $zero, amogusLeft
+			j susAmogusLeft
+			amogusLeft:
+			la $t3, leftSprite
+			
+			susAmogusLeft:
 			move $t2, $t4
 			sll $t2, $t2, 2
 			add $t2, $t2, $t5
@@ -353,7 +378,7 @@ updatePlayer:
 			addi $t7, $t7, -1
 			
 			#Check if y cord is within the new sprite position 
-			addi $t3, $t7, 8
+			addi $t3, $t7, 5
 			bge $t8, $t3, doClear
 			ble $t8, $t7, doClear
 			
@@ -376,6 +401,67 @@ updatePlayer:
 		
 	
 	finishedPlayerUpdate: jr $ra
+
+#------------------------------------------------------------------------------------------------------------------------
+#Useful functions
+
+#Make Platform given color, postion, width, height, ra on the stack
+makePlatform:
+	#Get Height
+	lw $t9, ($sp)
+    	addi $sp, $sp, 4
+    	
+    	#Get Width
+	lw $t8, ($sp)
+    	addi $sp, $sp, 4
+    	
+    	#Get position
+	lw $t7, ($sp)
+    	addi $sp, $sp, 4
+    	
+    	#Get color
+	lw $t6, ($sp)
+    	addi $sp, $sp, 4
+    	
+    	#Draw loop
+    	li $t4, 0 #Track our Y 
+	li $t5, 0 #Track our X 
+	
+	platformLoopY:
+		beq $t4, $t9, endPlatformLoopY
+		li $t5, 0
+		platformLoopX:
+			beq $t5, $t8, endPlatformLoopX
+			
+			#Calculate postion offset of pixel
+			move $t3, $t4
+			sll $t3, $t3, 6
+			add $t3, $t3, $t5
+
+			#Set a1 to screen position
+			add $a1, $t7, $t3
+			
+			#Get color of sprite 
+			lw $a0, $t6
+			
+			#send pixel off for drawing
+			la $a3, drawPixel
+			jalr $a2, $a3
+			
+			addi $t5, $t5, 1
+			j platformLoopX
+			
+		endPlatformLoopX:
+			addi $t4, $t4, 1
+			j platformLoopY
+		
+	endPlatformLoopY:
+		# Get ra
+    		lw $ra, ($sp)
+    		addi $sp, $sp, 4 
+    		
+    		jr $ra	
+	
 
 
 #Draw Pixel given color in $a0, position in $a1, and return register in a2
