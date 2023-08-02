@@ -9,13 +9,19 @@
 .eqv BASE_ADDRESS 0x10008000
 
 .data
+
 	#Game Setup
 	frameDelay: .word 1
 	
 	level: .word 0:4096
 	
+	#Crystal Data
+	crystalSprite: .word 0x000000, 0xd4f9bc, 0x000000, 0xd4f9bc, 0xa6e61d, 0xd4f9bc, 0x000000, 0xd4f9bc, 0x000000
+	
 	#Player Data
-	playerPos: .word 95
+	#-------------------------------------------------------------------------------------
+	#Player Data
+	playerPos: .word 1000
 	playerPrevPos: .word 0 #Used for temp variable storage
 	
 	playerSpeedX: .word 17 # How many frames per update
@@ -28,6 +34,10 @@
 	isGrounded: .word 0
 	jumping: .word 0
 	
+	dashing: .word 0
+	canDash: .word 0
+	dashCooldown: .word 0
+	
 	facingLeft: .word 0
 	
 	#Player Sprite
@@ -35,6 +45,7 @@
 	leftSprite: .word 0xd95959, 0xd95959, 0xd95959, 0x000000, 0xd7bb1eb, 0xd7bb1eb, 0xd95959, 0xd95959, 0xd95959, 0xd95959, 0xd95959, 0xd95959, 0xd95959, 0xd000000 0xd95959, 0xd000000
 	spriteSizeX: .word 4
 	spriteSizeY: .word 7
+	#-------------------------------------------------------------------------------------
 	
 	#Random Crap
 	newline: .asciiz "\n"
@@ -54,27 +65,74 @@ main:
 	#Jump Frame AC
 	li $s5, 0
 	
+	#--------------------------------------------------------------------------
 	#Set Up Platforms
-	li $t2, 0xd7bb1eb
+	li $t2, 0xdff0000
 	addi $sp, $sp, -4
     	sw $t2, ($sp)
     	
-    	li $t2, 3842
+    	li $t2, 3488
 	addi $sp, $sp, -4
     	sw $t2, ($sp)
     	
-    	li $t2, 62
+    	li $t2, 30
 	addi $sp, $sp, -4
     	sw $t2, ($sp)
     	
-    	li $t2, 3
+    	li $t2, 5
+	addi $sp, $sp, -4
+    	sw $t2, ($sp)
+    	
+    	jal makePlatform
+    	
+    	#Platform 2
+    	li $t2, 0xd7bb1eb
+	addi $sp, $sp, -4
+    	sw $t2, ($sp)
+    	
+    	li $t2, 3078
+	addi $sp, $sp, -4
+    	sw $t2, ($sp)
+    	
+    	li $t2, 10
+	addi $sp, $sp, -4
+    	sw $t2, ($sp)
+    	
+    	li $t2, 2
 	addi $sp, $sp, -4
     	sw $t2, ($sp)
     	
     	jal makePlatform
 	
-	
+	#Platform 3
+    	li $t2, 0xd7bb1eb
+	addi $sp, $sp, -4
+    	sw $t2, ($sp)
     	
+    	li $t2, 2842
+	addi $sp, $sp, -4
+    	sw $t2, ($sp)
+    	
+    	li $t2, 10
+	addi $sp, $sp, -4
+    	sw $t2, ($sp)
+    	
+    	li $t2, 2
+	addi $sp, $sp, -4
+    	sw $t2, ($sp)
+    	
+    	jal makePlatform
+
+    	#Platform 3
+    	li $t2, 64
+	addi $sp, $sp, -4
+    	sw $t2, ($sp)
+    	
+    	li $t2, 64
+	addi $sp, $sp, -4
+    	sw $t2, ($sp)
+    	
+    	jal makeCrystal
     	
 	
 update: 
@@ -105,7 +163,9 @@ keyPressed:
 	beq $t2, 0x61, aPress
 	beq $t2, 0x77, wPress 
 	beq $t2, 0x64, dPress 
-	beq $t2, 0x73, sPress  
+	beq $t2, 0x73, sPress
+	beq $t2, 0x6A, jPress  
+	beq $t2, 0x6B, kPress    
 	
 	
 	j update
@@ -114,6 +174,9 @@ keyPressed:
 		li $t5, -1
 		sw $t5, playerVelX
 		j update
+		
+	#Jumping buttons
+	jPress:
 	wPress: 
 		#Can't jump if not grounded
 		lw $t9, isGrounded
@@ -138,6 +201,10 @@ keyPressed:
 	sPress: 
 		li $t5, 0
 		sw $t5, playerVelX
+		j update
+	
+	#Dash Button	
+	kPress:
 		j update
 
 
@@ -211,6 +278,7 @@ updatePlayer:
 	lw $t8, playerVelY
 	
 	#Flip Player Sprite
+	beq $t7, $zero, skipflipLeft
 	blt $t7, $zero, flipPlayerLeft
 	li $t2, 0
 	sw $t2, facingLeft
@@ -261,8 +329,36 @@ updatePlayer:
 		add $t6, $t6, $t5
 		lw $t5, 0($t6)
 		bgt $t5, $zero, playerWallHit
-		
+				
 		addi $t6, $t6, 12	
+		lw $t5, 0($t6)			
+		bgt $t5, $zero, playerWallHit
+		
+		addi $t6, $t6, 256
+		lw $t5, 0($t6)			
+		bgt $t5, $zero, playerWallHit
+		
+		addi $t6, $t6, 256
+		lw $t5, 0($t6)			
+		bgt $t5, $zero, playerWallHit
+		
+		addi $t6, $t6, 256
+		lw $t5, 0($t6)			
+		bgt $t5, $zero, playerWallHit
+		
+		addi $t6, $t6, -12	
+		lw $t5, 0($t6)			
+		bgt $t5, $zero, playerWallHit
+		
+		addi $t6, $t6, -256
+		lw $t5, 0($t6)			
+		bgt $t5, $zero, playerWallHit
+		
+		addi $t6, $t6, -256
+		lw $t5, 0($t6)			
+		bgt $t5, $zero, playerWallHit
+		
+		addi $t6, $t6, -256
 		lw $t5, 0($t6)			
 		bgt $t5, $zero, playerWallHit
 		
@@ -273,6 +369,7 @@ updatePlayer:
 			sub $t4, $zero, $t4
 			add $t9, $t9, $t4
 			sw $t4, playerVelX
+			sw $zero playerVelX
 		
 		#Update player position x
 		normalXUpdate:
@@ -305,6 +402,9 @@ updatePlayer:
 		add $t6, $t6, $t4
 		lw $t4, ($t6)
 		bgt $t4, $zero, cancelJump
+		addi $t6, $t6, 12
+		lw $t4, ($t6)
+		bgt $t4, $zero, cancelJump
 		
 		#Bot
 		addi $t4, $t5, 256
@@ -313,10 +413,21 @@ updatePlayer:
 		
 		la $t6, level
 		sll $t4, $t4, 2
+		
 		add $t6, $t6, $t4
 		lw $t4, ($t6)
 		bgt $t4, $zero, grounded
-		add $t6, $t6, 16
+		
+		
+		addi $t6, $t6, 4
+		lw $t4, ($t6)
+		bgt $t4, $zero, grounded
+		
+		addi $t6, $t6, 4
+		lw $t4, ($t6)
+		bgt $t4, $zero, grounded
+		
+		addi $t6, $t6, 4
 		lw $t4, ($t6)
 		bgt $t4, $zero, grounded
 		j notGrounded
@@ -334,13 +445,17 @@ updatePlayer:
 		li $s5, 0
 		
 		sw $zero, playerVelY
-		move $t9, $t5
+		move $t6, $t8
+		sll $t6 $t6, 6
+		add $t9, $t9, $t6
 		j checkDraw
 		
 		#Update player position y	
 		notGrounded:
 		sw $zero, isGrounded
-		move $t9, $t5
+		move $t6, $t8
+		sll $t6 $t6, 6
+		add $t9, $t9, $t6
 
 		
 		j checkDraw
@@ -452,7 +567,7 @@ updatePlayer:
 	finishedPlayerUpdate: jr $ra
 
 #------------------------------------------------------------------------------------------------------------------------
-#Useful functions
+#Utility functions
 
 #Make Platform given color, postion, width, height, ra on the stack
 makePlatform:
@@ -521,7 +636,79 @@ makePlatform:
 	endPlatformLoopY:    		
     		jr $ra	
 	
+#Make Crystal
+makeCrystal:
 
+	#Get x position
+	lw $t9, ($sp)
+    	addi $sp, $sp, 4
+    	
+    	#Get y position
+	lw $t8, ($sp)
+    	addi $sp, $sp, 4
+    	
+    	#Calc Actual position
+    	move $t7, $t8
+    	sll $t8, $t8, 6
+    	add $t7, $t7, $t9
+
+	li $t4, 0 #Track our Y offset
+	li $t5, 0 #Track our X offset
+	
+	crystalSpriteLoopY:
+		beq $t4, 3, endCrystalSpriteLoopY
+		li $t5, 0
+		crystalSpriteLoopX:
+			beq $t5, 3, endCrystalSpriteLoopX
+			
+			#Calculate postion offset of pixel
+			move $t3, $t4
+			sll $t3, $t3, 6
+			add $t3, $t3, $t5
+			add $t3, $t3, $t7
+			
+			#Update Level Array
+			la $t2, level
+			sll $s0, $t3, 2
+			add $t2, $t2, $s0
+			li $s0, -2
+			sw $s0, ($t2)	
+
+			#Set a1 to screen position
+			move $a1, $t3
+			
+			#Get color of sprite 
+			#Get color of sprite 
+			la $t3, crystalSprite
+
+			move $t2, $t4
+			li $s0, 3
+			mult $t2, $s0
+			mflo $t2
+			add $t2, $t2, $t5
+			sll $t2, $t2, 2
+			add $t3, $t3, $t2
+			lw  $a0, ($t3)
+			
+			addi $sp, $sp, -4
+    			sw $t7, ($sp)
+			
+			#send pixel off for drawing
+			la $a3, drawPixel
+			jalr $a2, $a3
+			
+			lw $t7, ($sp)
+    			addi $sp, $sp, 4
+			
+			addi $t5, $t5, 1
+			j crystalSpriteLoopX
+			
+		endCrystalSpriteLoopX:
+			addi $t4, $t4, 1
+			j crystalSpriteLoopY
+		
+	endCrystalSpriteLoopY:    		
+    		jr $ra	
 
 #Draw Pixel given color in $a0, position in $a1, and return register in a2
 drawPixel: 
