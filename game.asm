@@ -54,6 +54,11 @@ main:
 	#Jump Frame AC
 	li $s5, 0
 	
+	
+    	
+    	
+	
+update: 
 	#Set Up Platforms
 	li $t2, 0xd7bb1eb
 	addi $sp, $sp, -4
@@ -72,8 +77,6 @@ main:
     	sw $t2, ($sp)
     	
     	jal makePlatform
-	
-update: 
 	
 	jal updatePlayer
 	
@@ -286,7 +289,7 @@ updatePlayer:
 	
 	doYUpdate:
 		#if velocity is zero, skip update
-		beq $t8, $zero, skipYUpdate
+		#beq $t8, $zero, skipYUpdate
 		li $s7, 0 # Reset counter
 		
 		#Ground Collision Check
@@ -325,25 +328,14 @@ updatePlayer:
 		
 		li $s5, 0
 		
-		li $v0 1
-		li $a0, 1
-		syscall
-		
 		sw $zero, playerVelY
-		#Set position to the ground
-		li $t6, 64
-		div $t9, $t6
-		mfhi $t4 #current x
-		li $t5, 4096
-		subi $t5, $t5, 256
-		add $t5, $t5, $t4
 		move $t9, $t5
-	
-		j checkDraw	
-		
+		j checkDraw
 		#Update player position y	
-		notGrounded:		
+		notGrounded:
+		sw $zero, isGrounded
 		move $t9, $t5
+
 		
 		j checkDraw
 		
