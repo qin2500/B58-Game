@@ -54,29 +54,31 @@ main:
 	#Jump Frame AC
 	li $s5, 0
 	
-	
-    	
-    	
-	
-update: 
 	#Set Up Platforms
 	li $t2, 0xd7bb1eb
 	addi $sp, $sp, -4
     	sw $t2, ($sp)
     	
-    	li $t2, 3845
+    	li $t2, 3842
 	addi $sp, $sp, -4
     	sw $t2, ($sp)
     	
-    	li $t2, 10
+    	li $t2, 62
 	addi $sp, $sp, -4
     	sw $t2, ($sp)
     	
-    	li $t2, 2
+    	li $t2, 3
 	addi $sp, $sp, -4
     	sw $t2, ($sp)
     	
     	jal makePlatform
+	
+	
+    	
+    	
+	
+update: 
+	
 	
 	jal updatePlayer
 	
@@ -260,7 +262,7 @@ updatePlayer:
 		lw $t5, 0($t6)
 		bgt $t5, $zero, playerWallHit
 		
-		addi $t6, $t6, 16	
+		addi $t6, $t6, 12	
 		lw $t5, 0($t6)			
 		bgt $t5, $zero, playerWallHit
 		
@@ -314,6 +316,9 @@ updatePlayer:
 		add $t6, $t6, $t4
 		lw $t4, ($t6)
 		bgt $t4, $zero, grounded
+		add $t6, $t6, 16
+		lw $t4, ($t6)
+		bgt $t4, $zero, grounded
 		j notGrounded
 		
 		#Turn off Jump
@@ -331,6 +336,7 @@ updatePlayer:
 		sw $zero, playerVelY
 		move $t9, $t5
 		j checkDraw
+		
 		#Update player position y	
 		notGrounded:
 		sw $zero, isGrounded
