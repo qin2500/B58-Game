@@ -7,6 +7,9 @@
 # - Display height in pixels: 512
 # - Base Address for Display: 0x10008000 ($gp)
 .eqv BASE_ADDRESS 0x10008000
+.eqv BASE_PLAYER_SPEED_X 17
+.eqv DASH_COLOR 0x29bbf2
+.eqv BACKGROUND_COLOR 0x000000
 
 .data
 
@@ -15,10 +18,14 @@
 	
 	level: .word 0:4096
 	
+	#Spike Data
+	spikeSprite: .word BACKGROUND_COLOR, 0xdadada, BACKGROUND_COLOR, BACKGROUND_COLOR, 0xc6c6c6, BACKGROUND_COLOR, 0xb2b2b2, 0xb2b2b2, 0xb2b2b2
+	numSpikes: .word 0
+	spikeArray: .word 0:40 #position, count
+	
 	#Crystal Data
-	crystalSprite: .word 0x000000, 0xd4f9bc, 0x000000, 0xd4f9bc, 0xa6e61d, 0xd4f9bc, 0x000000, 0xd4f9bc, 0x000000
-	crystalUpdateRate: .word 10 #How manyFrames per check
-	crystalArraySize: .word 4
+	crystalSprite: .word BACKGROUND_COLOR, 0xd4f9bc, BACKGROUND_COLOR, 0xd4f9bc, 0xa6e61d, 0xd4f9bc, BACKGROUND_COLOR, 0xd4f9bc, BACKGROUND_COLOR
+	numCrystals: .word 0
 	crystalArray: .word 0:16 # position, isActive, coolDown, coolDownTimer
 	
 	
@@ -34,20 +41,21 @@
 		
 	playerVelX: .word 0
 	playerVelY: .word 0
-	gravity: .word 1
 	
 	isGrounded: .word 0
 	jumping: .word 0
 	
 	dashing: .word 0
-	canDash: .word 0
-	dashCooldown: .word 0
+	canDash: .word 1
+	dashCooldown: .word 1000
 	
 	facingLeft: .word 0
 	
 	#Player Sprite
-	sprite: .word 0x000000, 0xd95959, 0xd95959, 0xd95959, 0xd95959, 0xd95959, 0xd7bb1eb, 0xd7bb1eb, 0xd95959, 0xd95959, 0xd95959, 0xd95959, 0x000000, 0xd95959, 0x000000, 0xd95959
-	leftSprite: .word 0xd95959, 0xd95959, 0xd95959, 0x000000, 0xd7bb1eb, 0xd7bb1eb, 0xd95959, 0xd95959, 0xd95959, 0xd95959, 0xd95959, 0xd95959, 0xd95959, 0xd000000 0xd95959, 0xd000000
+	sprite: .word BACKGROUND_COLOR, 0xd95959, 0xd95959, 0xd95959, 0xd95959, 0xd95959, 0xd7bb1eb, 0xd7bb1eb, 0xd95959, 0xd95959, 0xd95959, 0xd95959, BACKGROUND_COLOR, 0xd95959, BACKGROUND_COLOR, 0xd95959
+	leftSprite: .word 0xd95959, 0xd95959, 0xd95959, BACKGROUND_COLOR, 0xd7bb1eb, 0xd7bb1eb, 0xd95959, 0xd95959, 0xd95959, 0xd95959, 0xd95959, 0xd95959, 0xd95959, 0xd000000 0xd95959, 0xd000000
+	dashSprite: .word BACKGROUND_COLOR, DASH_COLOR, DASH_COLOR, DASH_COLOR, DASH_COLOR, DASH_COLOR, 0xd7bb1eb, 0xd7bb1eb, DASH_COLOR, DASH_COLOR, DASH_COLOR, DASH_COLOR, BACKGROUND_COLOR, DASH_COLOR, BACKGROUND_COLOR, DASH_COLOR
+	leftDashSprite: .word DASH_COLOR, DASH_COLOR, DASH_COLOR, BACKGROUND_COLOR, 0xd7bb1eb, 0xd7bb1eb, DASH_COLOR, DASH_COLOR, DASH_COLOR, DASH_COLOR, DASH_COLOR, DASH_COLOR, DASH_COLOR, 0xd000000 DASH_COLOR, 0xd000000
 	spriteSizeX: .word 4
 	spriteSizeY: .word 7
 	#-------------------------------------------------------------------------------------
@@ -61,7 +69,7 @@ main:
     # Continue with the rest of your code here
 
 	li $t0, BASE_ADDRESS # possition of our painting brush
-	li $t1, 0x000000 #stores the color black (for clearing pixels)
+	li $t1, BACKGROUND_COLOR #stores the color black (for clearing pixels)
 	
 	#Load in frame buffer values
 	li $s7, 0
@@ -70,12 +78,15 @@ main:
 	#Jump Frame AC
 	li $s5, 0
 	
+	#Dash time AC
+	li $s4, 0
+	
 	jal resetState 
 	
 	jal level1	
 	
 update: 
-	
+	jal spikeUpdate
 	jal crystalUpdate
 	jal updatePlayer
 	
@@ -96,94 +107,6 @@ update:
 #closing the game
 end:
 
-#--------------------------------------------------------------------------------------------------------
-#Level Setup
-level1:
-	
-	#Store return address in stack
-	addi $sp, $sp, -4
-    	sw $ra, ($sp)
-
-	#Set Up Platforms
-	li $t2, 0xdff0000
-	addi $sp, $sp, -4
-    	sw $t2, ($sp)
-    	
-    	li $t2, 3552
-	addi $sp, $sp, -4
-    	sw $t2, ($sp)
-    	
-    	li $t2, 30
-	addi $sp, $sp, -4
-    	sw $t2, ($sp)
-    	
-    	li $t2, 4
-	addi $sp, $sp, -4
-    	sw $t2, ($sp)
-    	
-    	jal makePlatform
-    	
-    	#Platform 2
-    	li $t2, 0xd7bb1eb
-	addi $sp, $sp, -4
-    	sw $t2, ($sp)
-    	
-    	li $t2, 3078
-	addi $sp, $sp, -4
-    	sw $t2, ($sp)
-    	
-    	li $t2, 10
-	addi $sp, $sp, -4
-    	sw $t2, ($sp)
-    	
-    	li $t2, 16
-	addi $sp, $sp, -4
-    	sw $t2, ($sp)
-    	
-    	jal makePlatform
-	
-	#Platform 3
-    	li $t2, 0xd7bb1eb
-	addi $sp, $sp, -4
-    	sw $t2, ($sp)
-    	
-    	li $t2, 2970
-	addi $sp, $sp, -4
-    	sw $t2, ($sp)
-    	
-    	li $t2, 10
-	addi $sp, $sp, -4
-    	sw $t2, ($sp)
-    	
-    	li $t2, 2
-	addi $sp, $sp, -4
-    	sw $t2, ($sp)
-    	
-    	jal makePlatform
-
-    	#crystal
-    	li $t2, 30
-	addi $sp, $sp, -4
-    	sw $t2, ($sp)
-    	
-    	li $t2, 32
-	addi $sp, $sp, -4
-    	sw $t2, ($sp)
-    	
-    	jal makeCrystal
-    	
-    	li $t2, 1000
-    	sw $t2, playerPos
-    	
-    	li $t2, 1
-    	sw $t2, playerVelY
-    	sw $zero, playerVelX
-    	
-    	
-    	#Get return address from stack
-    	lw $ra, ($sp)
-    	addi $sp, $sp, 4
-    	jr $ra
 
 #Handle User input
 keyPressed:
@@ -200,6 +123,10 @@ keyPressed:
 	j update
 	
 	aPress: 
+		#Can't momentum cancel if dashing
+		lw $t9, dashing
+		bne $t9, $zero, update
+	
 		li $t5, -1
 		sw $t5, playerVelX
 		j update
@@ -210,6 +137,10 @@ keyPressed:
 		#Can't jump if not grounded
 		lw $t9, isGrounded
 		beq $t9, $zero, update
+		
+		#Can't jump if dashing
+		lw $t9, dashing
+		bne $t9, $zero, update
 		
 		li $t7, -1
 		sw $t7, playerVelY
@@ -223,11 +154,19 @@ keyPressed:
 		sw $t5, jumping
 		j update
 	dPress: 
+		#Can't momentum cancel if dashing
+		lw $t9, dashing
+		bne $t9, $zero, update
+	
 		li $t5, 1
 		sw $t5, playerVelX
 		j update
 		
 	sPress: 
+		#Can't momentum cancel if dashing
+		lw $t9, dashing
+		bne $t9, $zero, update
+		
 		li $t5, 0
 		sw $t5, playerVelX
 		j update
@@ -239,11 +178,62 @@ keyPressed:
 	
 	#Dash Button	
 	kPress:
+		lw $t9, canDash
+		beq $t9, $zero, update
+		li $t5, 1
+		sw $t5, dashing
+		sw $zero, canDash
 		j update
 
 
 #Update both player position and sprite position on screen
 updatePlayer:	
+	#Dash Logic
+	lw $t9, dashing
+	beq $t9, $zero, playerIsNotDashing 
+	
+	sw $zero playerVelY
+	
+	addi $s4, $s4, 1
+	
+	#Set Dash Direction
+	lw $t8, facingLeft
+	beq $t8, $zero, dashRight
+	dashLeft:
+		li $t8, -1
+		sw $t8, playerVelX
+		j setSpeed
+	dashRight:
+		li $t8, 1
+		sw $t8, playerVelX
+	
+	#Set Dash speed
+	setSpeed:
+		li $t8, 2
+		sw $t8, playerSpeedX
+	
+	#Check if the dash is over	
+	li $t9, 30
+	bgt $s4, $t9, finishedDash
+	j continueToPosUpdate
+	
+	finishedDash:
+			
+		li $s4, 0
+		
+		sw $zero, dashing
+		
+		li $t8, BASE_PLAYER_SPEED_X
+		sw $t8, playerSpeedX
+		
+	
+	
+	playerIsNotDashing:
+	li $t8, BASE_PLAYER_SPEED_X
+	sw $t8, playerSpeedX
+	
+	li $s4, 0
+	sw $zero, dashing
 	
 	#Update Player State
 	lw $t9, jumping
@@ -287,7 +277,7 @@ updatePlayer:
 	sw $t7, playerVelY
 	
 	addi $s5, $s5, 1
-	li $t7, 10
+	li $t7, 5
 	bgt $s5, $t7, increaseFallSpeed
 	j continueToPosUpdate
 	
@@ -295,7 +285,7 @@ updatePlayer:
 	#decrease speed as player jumps (to mimik gravity)
 	lw $t7, playerSpeedY
 	li $s5, 0
-	li $t6, 15
+	li $t6, 10
 	blt $t7, $t6, continueToPosUpdate 
 	addi $t7, $t7, -5
 	sw $t7, playerSpeedY
@@ -404,6 +394,7 @@ updatePlayer:
 			add $t9, $t9, $t4
 			sw $t4, playerVelX
 			sw $zero playerVelX
+			sw $zero dashing
 		
 		#Update player position x
 		normalXUpdate:
@@ -482,6 +473,11 @@ updatePlayer:
 		move $t6, $t8
 		sll $t6 $t6, 6
 		add $t9, $t9, $t6
+		
+		lw $t6, dashing
+		bne $t6, $zero, checkDraw
+		li $t6, 1
+		sw $t6, canDash
 		j checkDraw
 		
 		#Update player position y	
@@ -524,16 +520,37 @@ updatePlayer:
 			#Set a1 to screen position
 			add $a1, $t6, $t9
 			
-			#Get color of sprite 
+			#Get reference sprite
 			la $t3, sprite
 			
 			lw $s0, facingLeft
-			bgt $s0, $zero, amogusLeft
-			j susAmogusLeft
-			amogusLeft:
-			la $t3, leftSprite
+			bgt $s0, $zero, playerFacingLeft
+			j playerFacingRight
 			
-			susAmogusLeft:
+			#Player is facing left
+			playerFacingLeft:
+			lw $s0, canDash
+			beq $s0, $zero, leftCantDash
+			leftCanDash:
+				la $t3, leftSprite
+			j drawPlayerPixel
+			leftCantDash:
+				la $t3, leftDashSprite
+			j drawPlayerPixel
+			
+			#Player is facing right
+			playerFacingRight:
+			lw $s0, canDash
+			beq $s0, $zero, rightCantDash
+			rightCanDash:
+				la $t3, sprite
+			j drawPlayerPixel
+			rightCantDash:
+				la $t3, dashSprite
+			j drawPlayerPixel
+			
+			drawPlayerPixel:
+			#Get color of pixel
 			move $t2, $t4
 			sll $t2, $t2, 2
 			add $t2, $t2, $t5
@@ -605,17 +622,24 @@ crystalUpdate:
 	li $t2, 0
 	
 	crystalUpdateLoop:
-		lw $t3, crystalArraySize
-		beq $t2, $t3, endcrystalUpdateLoop
+		lw $t3, numCrystals
+		bgt $t2, $t3, endcrystalUpdateLoop
 		
 		move $t3, $t2
 		sll $t3, $t3  4
 		la $t4, crystalArray
 		add $t3, $t4, $t3
 		
+		
+		
 		lw $t9, playerPos
 		lw $t8, ($t3)
 		beq $t8, $zero, noCrystalOverlap
+		
+		#Check if crystal is active
+		lw $s0, 4($t3)
+		beq $s0, $zero, inactiveCrystal
+		
 		li $t3, 64
 		
 		#Check x
@@ -647,19 +671,143 @@ crystalUpdate:
 			addi $sp, $sp, -4
 			sw $ra, ($sp)
 			
-			jal resetState
-			jal level1
+			addi $sp, $sp, -4
+			sw $t2, ($sp)
+			
+			li $t6, 1
+			sw $t6, canDash
+			
+			#Set isActive to false
+			move $t3, $t2
+			sll $t3, $t3  4
+			la $t4, crystalArray
+			add $t3, $t4, $t3
+			sw $zero, 4($t3)
+			
+			#Deactivate crystal visuals			
+    			addi $sp, $sp, -4
+    			sw $zero, ($sp)
+    			
+    			addi $sp, $sp, -4
+    			lw $t8, ($t3)
+    			sw $t8, ($sp)
+    			
+    			jal toggleCrystal
+			
+			lw $t2, ($sp)
+    			addi $sp, $sp, 4
 			
 			lw $ra, ($sp)
     			addi $sp, $sp, 4
     			
-    			jr $ra
+    			j noCrystalOverlap
+    	inactiveCrystal:
+    		lw $t9, 12($t3)
+    		addi $t9, $t9, 1
+    		sw $t9, 12($t3)
+    		li $t8, 500
+    		bgt $t9, $t8, reactivateCrystal
+    		j noCrystalOverlap
+    		reactivateCrystal:
+    			sw $zero, 12($t3) 
+    		
+    			addi $sp, $sp, -4
+			sw $ra, ($sp)
+			
+			addi $sp, $sp, -4
+			sw $t2, ($sp)
+    		
+    			li $t8, 1
+    			sw $t8, 4($t3)
+    			
+    			addi $sp, $sp, -4
+    			sw $t8, ($sp)
+    			
+    			addi $sp, $sp, -4
+    			lw $t8, ($t3)
+    			sw $t8, ($sp)
+    			
+    			jal toggleCrystal
+    			
+    			lw $t2, ($sp)
+    			addi $sp, $sp, 4
+    			
+    			lw $ra, ($sp)
+    			addi $sp, $sp, 4
+    			
+    		
 	noCrystalOverlap:
 		addi $t2,  $t2, 1
 		j crystalUpdateLoop
 	endcrystalUpdateLoop:
 		jr $ra	
 	
+#Check to see if player is colliding with spikes
+spikeUpdate:
+	li $t2, 0
+	
+	spikeUpdateLoop:
+		lw $t3, numSpikes
+		beq $t2, $t3, endSpikeUpdateLoop
+		
+		move $t3, $t2
+		sll $t3, $t3  3
+		la $t4, spikeArray
+		add $t3, $t4, $t3
+		
+		
+		
+		lw $t9, playerPos
+		lw $t8, ($t3)
+		beq $t8, $zero, noSpikeOverlap
+		
+		lw $s0, 4($t3)
+		sll $s0, $s0, 2	
+		
+		li $t3, 64
+		
+		#Check x
+		div $t9, $t3
+		mfhi $t7 #cur x
+		div $t8, $t3
+		mfhi $t6 #cur  x
+				
+		addi $t7, $t7, 3
+		blt $t7, $t6, noSpikeOverlap
+		subi $t7, $t7, 3	
+		add $t6, $t6, $s0
+		blt $t6, $t7, noSpikeOverlap
+		
+		#Check y
+		div $t9, $t3
+		mflo $t7 #cur y
+		div $t8, $t3
+		mflo $t6 #cur y
+		
+		addi $t7, $t7, 3
+		blt $t7, $t6, noSpikeOverlap
+		addi $t7, $t7, -3
+		addi $t6, $t6, 2
+		blt $t6, $t7, noSpikeOverlap
+		
+		#Activate the crystal
+		activateSpike:
+			addi $sp, $sp, -4
+			sw $ra, ($sp)
+			
+			jal resetState
+			jal level1
+			
+			lw $ra, ($sp)
+    			addi $sp, $sp, 4
+    			
+    			j noSpikeOverlap    			
+    		
+	noSpikeOverlap:
+		addi $t2,  $t2, 1
+		j crystalUpdateLoop
+	endSpikeUpdateLoop:
+		jr $ra
 
 #------------------------------------------------------------------------------------------------------------------------
 #Utility functions
@@ -733,6 +881,11 @@ makePlatform:
 	
 #Make Crystal
 makeCrystal:
+	
+	#Increment Crystal Count
+	lw $t9, numCrystals
+	addi $t9, $t9 ,1
+	sw $t9, numCrystals
 
 	#Get x position
 	lw $t9, ($sp)
@@ -813,10 +966,163 @@ makeCrystal:
 			j crystalSpriteLoopY
 		
 	endCrystalSpriteLoopY:    		
+    		jr $ra
+    		
+#Toggle Crystal Visuals: position, mode
+toggleCrystal:
+	#Get position
+	lw $t7, ($sp)
+    	addi $sp, $sp, 4
+    	
+    	#Get mode
+	lw $t8, ($sp)
+    	addi $sp, $sp, 4
+
+	li $t4, 0 #Track our Y offset
+	li $t5, 0 #Track our X offset
+	
+	crystalSpriteLoopYb:
+		beq $t4, 3, endCrystalSpriteLoopYb
+		li $t5, 0
+		crystalSpriteLoopXb:
+			beq $t5, 3, endCrystalSpriteLoopXb
+			
+			#Calculate postion offset of pixel
+			move $t3, $t4
+			sll $t3, $t3, 6
+			add $t3, $t3, $t5
+			add $t3, $t3, $t7
+			
+			#Set a1 to screen position
+			move $a1, $t3
+			
+			#Get color of sprite 
+			la $t3, crystalSprite
+
+			move $t2, $t4
+			li $s0, 3
+			mult $t2, $s0
+			mflo $t2
+			add $t2, $t2, $t5
+			sll $t2, $t2, 2
+			add $t3, $t3, $t2
+			lw  $a0, ($t3)
+			
+			addi $sp, $sp, -4
+    			sw $t7, ($sp)
+			
+			#Earase or Draw?
+			beq $t8, $zero, eatTheAss
+			j doPixelToggle
+			
+			eatTheAss:move $a0, $t1
+			
+			
+			doPixelToggle:
+			#send pixel off for drawing
+			la $a3, drawPixel
+			jalr $a2, $a3
+			
+			lw $t7, ($sp)
+    			addi $sp, $sp, 4
+			
+			addi $t5, $t5, 1
+			j crystalSpriteLoopXb
+			
+		endCrystalSpriteLoopXb:
+			addi $t4, $t4, 1
+			j crystalSpriteLoopYb
+		
+	endCrystalSpriteLoopYb:    		
     		jr $ra	
+
+#Make Platform given postion, count on the stack
+makeSpikes:
+
+	lw $t9, numSpikes
+	addi $t9, $t9 ,1
+	sw $t9, numSpikes
+
+	#Get count
+	lw $t8, ($sp)
+    	addi $sp, $sp, 4
+    	
+    	#Get position
+	lw $t7, ($sp)
+    	addi $sp, $sp, 4
+    	
+    	la $t2, spikeArray
+    	sw $t7, ($t2)
+    	addi $t2, $t2, 4
+    	sw $t8, ($t2)
+    	
+    	#Draw loop
+    	li $t6, 0
+   	spikeLoop:
+   	beq $t6, $t8, endSpikeLoop
+    	
+    	li $t4, 0 #Track our Y 
+	li $t5, 0 #Track our X 
+	
+	spikeLoopY:
+		beq $t4, 3, endSpikeLoopY
+		li $t5, 0
+		spikeLoopX:
+			beq $t5, 3, endSpikeLoopX
+			
+			#Calculate postion offset of pixel
+			move $t3, $t4
+			sll $t3, $t3, 6
+			add $t3, $t3, $t5
+			add $t3, $t3, $t7
+
+			#Set a1 to screen position
+			move $a1, $t3
+			
+			#Get color of sprite 
+			la $t3, spikeSprite
+
+			move $t2, $t4
+			li $s0, 3
+			mult $t2, $s0
+			mflo $t2
+			add $t2, $t2, $t5
+			sll $t2, $t2, 2
+			add $t3, $t3, $t2
+			lw  $a0, ($t3)
+			
+			addi $sp, $sp, -4
+    			sw $t7, ($sp)
+			
+			#send pixel off for drawing
+			la $a3, drawPixel
+			jalr $a2, $a3
+			
+			lw $t7, ($sp)
+    			addi $sp, $sp, 4
+			
+			addi $t5, $t5, 1
+			j spikeLoopX
+			
+		endSpikeLoopX:
+			addi $t4, $t4, 1
+			j spikeLoopY
+		
+	endSpikeLoopY:    		
+    		addi $t6, $t6, 1
+    		addi $t7, $t7, 4
+		j spikeLoop
+	endSpikeLoop:
+		jr $ra
+
 
 #Reset Current State
 resetState:
+	li $s7, 0
+	li $s6, 0
+	li $s5, 0
+	li $s4, 0
+
 	li $t2, 0
 	li $t3, 4096
 	
@@ -828,13 +1134,19 @@ resetState:
 		la $a3, drawPixel
 		jalr $a2, $a3
 		
+		#Update Level Array
+		la $t4, level
+		sll $t5, $t2, 2
+		add $t4, $t4, $t5
+		sw $zero, ($t4)	
+		
 		addi $t2, $t2, 1
 		
 		j resetLoop
 	finishedReset:
 	
 	li $t2, 0
-	lw $t3, crystalArraySize
+	lw $t3, numCrystals
 	clearCyristalsLoop:
 		beq $t2, $t3, finishedCrystalClear
 		la $t4, crystalArray
@@ -854,6 +1166,7 @@ resetState:
 		j clearCyristalsLoop
 		
 	finishedCrystalClear:
+		sw $zero, numCrystals
 		jr $ra
 
 #Draw Pixel given color in $a0, position in $a1, and return register in a2
@@ -869,4 +1182,104 @@ drawPixel:
 	
 	
 	skipDraw: jr $a2
+	
+#--------------------------------------------------------------------------------------------------------
+#Level Setup
+level1:
+	
+	#Store return address in stack
+	addi $sp, $sp, -4
+    	sw $ra, ($sp)
+
+	#Set Up Platforms
+	li $t2, 0xdff0000
+	addi $sp, $sp, -4
+    	sw $t2, ($sp)
+    	
+    	li $t2, 3552
+	addi $sp, $sp, -4
+    	sw $t2, ($sp)
+    	
+    	li $t2, 30
+	addi $sp, $sp, -4
+    	sw $t2, ($sp)
+    	
+    	li $t2, 4
+	addi $sp, $sp, -4
+    	sw $t2, ($sp)
+    	
+    	jal makePlatform
+    	
+    	#Platform 2
+    	li $t2, 0xd7bb1eb
+	addi $sp, $sp, -4
+    	sw $t2, ($sp)
+    	
+    	li $t2, 3078
+	addi $sp, $sp, -4
+    	sw $t2, ($sp)
+    	
+    	li $t2, 10
+	addi $sp, $sp, -4
+    	sw $t2, ($sp)
+    	
+    	li $t2, 16
+	addi $sp, $sp, -4
+    	sw $t2, ($sp)
+    	
+    	jal makePlatform
+	
+	#Platform 3
+    	li $t2, 0xd7bb1eb
+	addi $sp, $sp, -4
+    	sw $t2, ($sp)
+    	
+    	li $t2, 2970
+	addi $sp, $sp, -4
+    	sw $t2, ($sp)
+    	
+    	li $t2, 10
+	addi $sp, $sp, -4
+    	sw $t2, ($sp)
+    	
+    	li $t2, 2
+	addi $sp, $sp, -4
+    	sw $t2, ($sp)
+    	
+    	jal makePlatform
+
+    	#crystal
+    	li $t2, 40
+	addi $sp, $sp, -4
+    	sw $t2, ($sp)
+    	
+    	li $t2, 40
+	addi $sp, $sp, -4
+    	sw $t2, ($sp)
+    	
+    	jal makeCrystal
+    	
+    	#Reset player stats
+    	li $t2, 1000
+    	sw $t2, playerPos
+    	
+    	li $t2, 1
+    	sw $t2, playerVelY
+    	sw $zero, playerVelX
+    	
+    	#Spike
+    	li $t2, 2118
+	addi $sp, $sp, -4
+    	sw $t2, ($sp)
+    	
+    	li $t2, 2
+	addi $sp, $sp, -4
+    	sw $t2, ($sp)
+    	
+    	jal makeSpikes
+    	
+    	#Get return address from stack
+    	lw $ra, ($sp)
+    	addi $sp, $sp, 4
+    	jr $ra
 	
