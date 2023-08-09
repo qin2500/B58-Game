@@ -1,4 +1,9 @@
-# Bitmap display starter code
+#####################################################################
+#
+# CSCB58 Winter 2022 Assembly Final Project
+# University of Toronto, Scarborough
+#
+# Student: Anthony Qin, 1008300394, qinantho, qinantho@mail.utoronto.ca
 #
 # Bitmap Display Configuration:
 # - Unit width in pixels: 8
@@ -6,6 +11,35 @@
 # - Display width in pixels: 512
 # - Display height in pixels: 512
 # - Base Address for Display: 0x10008000 ($gp)
+#
+# Which milestones have been reached in this submission?
+# (See the assignment handout for descriptions of the milestones)
+# - Milestone 3
+#
+# Which approved features have been implemented for milestone 3?
+# (See the assignment handout for the list of additional features)
+# 1. Fail Condition
+# 2. Win Condition
+# 3. Disappearing Platforms
+# 4. Different Levels
+# 5. Pick-Up effects
+# 6. Double Jump (dash)
+# 7. Start Menu
+# 8. Score (Strawberries)
+# Link to video demonstration for final submission:
+# https://youtu.be/a1_KAkY5vh8
+#
+# Are you OK with us sharing the video with people outside course staff?
+# - yes : https://github.com/qin2500/B58-Game
+#
+# Any additional information that the TA needs to know:
+#Controlls:
+#Main Menu: a,d - Navigation, s-select
+#Main Game: a,d - Move, s-Stop (cancel all horizontal momentum), j,w-Jump, k-dash
+#Press p at anytime to start a level
+#										Player will turn blue when dash is depleted
+#I would like the emphasize the effort that went into the "physics" of this game, as i've implemented system to simulate both Acceleration and Velocity without impating frame rate
+#####################################################################
 .eqv BASE_ADDRESS 0x10008000
 .eqv BASE_PLAYER_SPEED_X 17
 .eqv DASH_COLOR 0x29bbf2
